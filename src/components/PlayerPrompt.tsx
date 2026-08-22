@@ -8,6 +8,7 @@ interface PlayerPromptProps {
   hintEntry: WordEntry | null;
   feedback: AnswerFeedback;
   heard: string;
+  micError: string | null;
 }
 
 const FEEDBACK_TEXT: Record<Exclude<AnswerFeedback, null>, string> = {
@@ -16,7 +17,27 @@ const FEEDBACK_TEXT: Record<Exclude<AnswerFeedback, null>, string> = {
   'already-used': '앗, 그 단어는 이미 나왔어요! 다른 단어를 생각해볼까요?',
 };
 
-export function PlayerPrompt({ requiredStart, hintStage, hintEntry, feedback, heard }: PlayerPromptProps) {
+const MIC_ERROR_TEXT: Record<string, string> = {
+  'not-allowed': '🎤 마이크 권한이 꺼져 있어요. 주소창의 자물쇠 아이콘에서 마이크를 "허용"으로 바꿔주세요.',
+  'service-not-allowed': '🎤 마이크 권한이 꺼져 있어요. 주소창의 자물쇠 아이콘에서 마이크를 "허용"으로 바꿔주세요.',
+  'no-speech': '🎤 소리가 안 들렸어요. 마이크 가까이서 다시 말해볼까요?',
+  'audio-capture': '🎤 마이크를 찾을 수 없어요. 마이크가 연결되어 있는지 확인해주세요.',
+  'network': '🎤 음성 인식 연결이 원활하지 않아요. 잠시 후 다시 시도해주세요.',
+  'aborted': '',
+};
+
+function micErrorMessage(code: string): string {
+  return MIC_ERROR_TEXT[code] ?? '🎤 음성 인식에 문제가 생겼어요. 마이크 버튼을 다시 눌러볼까요?';
+}
+
+export function PlayerPrompt({
+  requiredStart,
+  hintStage,
+  hintEntry,
+  feedback,
+  heard,
+  micError,
+}: PlayerPromptProps) {
   return (
     <div className="flex w-full max-w-sm flex-col items-center gap-3">
       <div className="animate-pop flex items-center gap-2 rounded-full bg-white px-5 py-2.5 shadow-md">
@@ -33,6 +54,12 @@ export function PlayerPrompt({ requiredStart, hintStage, hintEntry, feedback, he
       {feedback && (
         <div className="animate-bounce-in rounded-2xl bg-orange-100 px-4 py-2.5 text-center text-sm font-bold text-orange-600 sm:text-base">
           {FEEDBACK_TEXT[feedback].replace('{start}', requiredStart)}
+        </div>
+      )}
+
+      {micError && micErrorMessage(micError) && (
+        <div className="animate-bounce-in rounded-2xl bg-red-100 px-4 py-2.5 text-center text-sm font-bold text-red-600 sm:text-base">
+          {micErrorMessage(micError)}
         </div>
       )}
 

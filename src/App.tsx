@@ -23,7 +23,13 @@ function App() {
     [game.submitAnswer],
   );
 
-  const { listening, start, stop, supported: micSupported } = useSpeechRecognition({
+  const {
+    listening,
+    start,
+    stop,
+    error: micError,
+    supported: micSupported,
+  } = useSpeechRecognition({
     onResult: handleResult,
   });
 
@@ -85,6 +91,7 @@ function App() {
                 hintEntry={game.hintEntry}
                 feedback={game.feedback}
                 heard={heard}
+                micError={micError}
               />
             )}
           </div>
