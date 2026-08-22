@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface UseSpeechRecognitionOptions {
-  onResult?: (transcript: string) => void;
+  /** alternatives[0]이 가장 신뢰도 높은 인식 결과이고, 나머지는 차선책 후보들이다. */
+  onResult?: (alternatives: string[]) => void;
 }
 
 export function useSpeechRecognition({ onResult }: UseSpeechRecognitionOptions = {}) {
@@ -28,9 +29,13 @@ export function useSpeechRecognition({ onResult }: UseSpeechRecognitionOptions =
 
     recognition.onresult = (event) => {
       const result = event.results[event.results.length - 1];
-      const text = result[0].transcript.trim().replace(/\s+/g, '');
-      setTranscript(text);
-      onResultRef.current?.(text);
+      const alternatives: string[] = [];
+      for (let i = 0; i < result.length; i++) {
+        const alt = result[i].transcript.trim().replace(/\s+/g, '');
+        if (alt && !alternatives.includes(alt)) alternatives.push(alt);
+      }
+      setTranscript(alternatives[0] ?? '');
+      onResultRef.current?.(alternatives);
     };
     recognition.onerror = (event) => {
       setError(event.error);

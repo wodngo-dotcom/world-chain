@@ -128,13 +128,28 @@ export function useGame() {
   );
 
   const submitAnswer = useCallback(
-    (raw: string) => {
+    (rawAlternatives: string[] | string) => {
       if (phase !== 'player-turn' || !requiredStart) return;
-      const trimmed = raw.trim();
-      if (!trimmed) return;
-      let check = checkAnswer(trimmed, requiredStart, usedWords);
+      const alternatives = (Array.isArray(rawAlternatives) ? rawAlternatives : [rawAlternatives])
+        .map((a) => a.trim())
+        .filter(Boolean);
+      const topAlternative = alternatives[0];
+      if (!topAlternative) return;
+
+      // 음성인식이 준 여러 후보(대개 1순위가 가장 정확하지만, 드물게 2·3순위가 맞을 때가 있다)
+      // 중 사전에 있는 유효한 답을 찾을 때까지 순서대로 확인한다.
+      let check = checkAnswer(topAlternative, requiredStart, usedWords);
+      if (!check.ok) {
+        for (const alt of alternatives.slice(1)) {
+          const altCheck = checkAnswer(alt, requiredStart, usedWords);
+          if (altCheck.ok) {
+            check = altCheck;
+            break;
+          }
+        }
+      }
       if (!check.ok && check.reason === 'not-a-word') {
-        const closest = findClosestWord(trimmed, requiredStart, usedWords);
+        const closest = findClosestWord(topAlternative, requiredStart, usedWords);
         if (closest) {
           check = checkAnswer(closest.word, requiredStart, usedWords);
         }

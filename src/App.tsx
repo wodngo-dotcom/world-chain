@@ -16,9 +16,9 @@ function App() {
   const [heard, setHeard] = useState('');
 
   const handleResult = useCallback(
-    (text: string) => {
-      setHeard(text);
-      game.submitAnswer(text);
+    (alternatives: string[]) => {
+      setHeard(alternatives[0] ?? '');
+      game.submitAnswer(alternatives);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [game.submitAnswer],
