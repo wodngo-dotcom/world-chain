@@ -23,6 +23,7 @@ const MIC_ERROR_TEXT: Record<string, string> = {
   'no-speech': '🎤 소리가 안 들렸어요. 마이크 가까이서 다시 말해볼까요?',
   'audio-capture': '🎤 마이크를 찾을 수 없어요. 마이크가 연결되어 있는지 확인해주세요.',
   'network': '🎤 음성 인식 연결이 원활하지 않아요. 잠시 후 다시 시도해주세요.',
+  'start-failed': '🎤 마이크가 응답하지 않아요. 브라우저 마이크 권한을 확인하거나, 새로고침 후 다시 시도해주세요.',
   'aborted': '',
 };
 

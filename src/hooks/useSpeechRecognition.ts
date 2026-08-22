@@ -55,11 +55,24 @@ export function useSpeechRecognition({ onResult }: UseSpeechRecognitionOptions =
   const start = useCallback(() => {
     if (!recognitionRef.current) return;
     setTranscript('');
+    setError(null);
     try {
       recognitionRef.current.start();
-    } catch {
-      // 이미 시작된 경우(InvalidStateError) 등은 무시
+    } catch (err) {
+      // 이미 시작된 경우(InvalidStateError)는 무시하고, 그 외에는 화면에 보여준다
+      if (!(err instanceof DOMException && err.name === 'InvalidStateError')) {
+        setError('start-failed');
+      }
+      return;
     }
+    // 일부 기기/브라우저에서는 시작도 에러도 아무 신호 없이 조용히 실패한다.
+    // 일정 시간 안에 실제로 듣기 시작했다는 신호(onstart)가 없으면 화면에 알려준다.
+    window.setTimeout(() => {
+      setListening((isListening) => {
+        if (!isListening) setError((prev) => prev ?? 'start-failed');
+        return isListening;
+      });
+    }, 2500);
   }, []);
 
   const stop = useCallback(() => {

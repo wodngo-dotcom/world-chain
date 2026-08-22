@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useGame } from './game/useGame';
 import { useSpeechRecognition } from './hooks/useSpeechRecognition';
+import { useBeep } from './hooks/useBeep';
 import { GameHeader } from './components/GameHeader';
 import { CharacterIntro } from './components/CharacterIntro';
 import { CharacterStage } from './components/CharacterStage';
@@ -32,6 +33,7 @@ function App() {
   } = useSpeechRecognition({
     onResult: handleResult,
   });
+  const beep = useBeep();
 
   useEffect(() => {
     if (game.phase !== 'player-turn') setHeard('');
@@ -43,8 +45,9 @@ function App() {
       return;
     }
     setHeard('');
+    beep(); // 마이크가 듣기 시작했다는 걸 소리로 바로 알려준다
     start();
-  }, [listening, start, stop]);
+  }, [listening, start, stop, beep]);
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-sky-100 via-orange-50 to-pink-50">
