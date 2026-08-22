@@ -1,6 +1,8 @@
 import { WORDS, type WordEntry } from '../data/words';
+import { DICTIONARY_WORDS } from '../data/dictionaryWords';
 import type { Character } from '../data/characters';
 
+// AI 캐릭터가 다음 단어를 고를 때 쓰는 풀. 아동 수준 단어만 포함하며 그대로 유지한다.
 const WORDS_BY_START = new Map<string, WordEntry[]>();
 for (const w of WORDS) {
   const key = w.word[0];
@@ -10,6 +12,29 @@ for (const w of WORDS) {
 }
 
 export const WORD_SET = new Map(WORDS.map((w) => [w.word, w]));
+
+// 아이의 답변을 판정할 때만 쓰는, 훨씬 더 큰 사전 단어 목록 (한 글자 단어는 이미 제외되어 있음).
+const DICTIONARY_SET = new Set(DICTIONARY_WORDS);
+const DICTIONARY_BY_START = new Map<string, string[]>();
+for (const w of DICTIONARY_WORDS) {
+  const key = w[0];
+  const list = DICTIONARY_BY_START.get(key) ?? [];
+  list.push(w);
+  DICTIONARY_BY_START.set(key, list);
+}
+
+/** 아동 수준 목록에 없는 사전 단어를 위한 대체 표시(그림/뜻풀이가 따로 없음을 알려줌). */
+function syntheticEntry(word: string): WordEntry {
+  return { word, meaning: '아직 그림과 뜻풀이가 준비되지 않은 단어예요. 그래도 정답으로 인정돼요!', emoji: '📘', tier: 5 };
+}
+
+/** 아이가 말한 단어인지(아동 목록 + 사전 전체) 찾아 표시용 항목을 돌려준다. 없으면 null. */
+function findAnswerEntry(word: string): WordEntry | null {
+  const kidEntry = WORD_SET.get(word);
+  if (kidEntry) return kidEntry;
+  if (DICTIONARY_SET.has(word)) return syntheticEntry(word);
+  return null;
+}
 
 export function lastChar(word: string): string {
   return word[word.length - 1];
@@ -23,14 +48,19 @@ export interface AnswerCheck {
   entry?: WordEntry;
 }
 
-/** 아이의 답변이 유효한지 검사한다 (사전 존재 여부, 시작 글자, 중복 여부). */
+/**
+ * 아이의 답변이 유효한지 검사한다 (사전 존재 여부, 시작 글자, 중복 여부).
+ * 존재 여부는 아동 수준 단어 목록뿐 아니라 표준국어대사전 기반의 훨씬 넓은 사전
+ * 단어 목록까지 함께 확인한다 (단, 한 글자 단어는 제외).
+ */
 export function checkAnswer(
   raw: string,
   requiredStart: string,
   usedWords: ReadonlySet<string>,
 ): AnswerCheck {
   const candidate = raw.trim();
-  const entry = WORD_SET.get(candidate);
+  if (candidate.length < 2) return { ok: false, reason: 'not-a-word' };
+  const entry = findAnswerEntry(candidate);
   if (!entry) return { ok: false, reason: 'not-a-word' };
   if (candidate[0] !== requiredStart) return { ok: false, reason: 'wrong-start' };
   if (usedWords.has(candidate)) return { ok: false, reason: 'already-used' };
@@ -167,18 +197,22 @@ export function findClosestWord(
   requiredStart: string,
   usedWords: ReadonlySet<string>,
 ): WordEntry | null {
-  const candidates = (WORDS_BY_START.get(requiredStart) ?? []).filter((w) => !usedWords.has(w.word));
+  const kidCandidates = (WORDS_BY_START.get(requiredStart) ?? []).map((w) => w.word);
+  const dictCandidates = DICTIONARY_BY_START.get(requiredStart) ?? [];
+  const candidates = Array.from(new Set([...kidCandidates, ...dictCandidates])).filter(
+    (w) => !usedWords.has(w),
+  );
   if (candidates.length === 0) return null;
   const threshold = transcript.length <= 2 ? 1 : 2;
-  let best: WordEntry | null = null;
+  let best: string | null = null;
   let bestDist = Infinity;
   for (const w of candidates) {
-    const dist = levenshtein(transcript, w.word);
+    const dist = levenshtein(transcript, w);
     if (dist < bestDist) {
       bestDist = dist;
       best = w;
     }
   }
-  if (best && bestDist <= threshold) return best;
+  if (best && bestDist <= threshold) return findAnswerEntry(best);
   return null;
 }
