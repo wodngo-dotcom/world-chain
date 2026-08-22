@@ -51,7 +51,7 @@ function App() {
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-sky-100 via-orange-50 to-pink-50">
-      <GameHeader characterIndex={game.characterIndex} progress={game.progress} />
+      <GameHeader characterIndex={game.characterIndex} progress={game.progress} onRestart={game.restartGame} />
 
       {game.phase === 'intro' && (
         <CharacterIntro character={game.character} onStart={game.startRound} speak={game.speak} />

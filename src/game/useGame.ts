@@ -58,7 +58,7 @@ async function findApiCandidate(
 
 export function useGame() {
   const { progress, recordVictory, recordChainLength, resetProgress } = useProgress();
-  const { speak, supported: ttsSupported } = useTTS();
+  const { speak, cancel: cancelSpeech, supported: ttsSupported } = useTTS();
 
   const [characterIndex, setCharacterIndex] = useState(progress.currentCharacterIndex);
   const [phase, setPhase] = useState<Phase>('intro');
@@ -296,13 +296,21 @@ export function useGame() {
   }, [characterIndex, chain.length, recordChainLength]);
 
   const restartGame = useCallback(() => {
+    clearIdleTimer();
+    cancelSpeech();
     resetProgress();
     setCharacterIndex(0);
     setPhase('intro');
     setChain([]);
     setUsedWords(new Set());
     setRequiredStart(null);
-  }, [resetProgress]);
+    setHintStage(0);
+    setHintEntry(null);
+    setFeedback(null);
+    setRevealedEntry(null);
+    setSpeechLine('');
+    setDictionaryChecking(false);
+  }, [resetProgress, clearIdleTimer, cancelSpeech]);
 
   const currentWord = chain[chain.length - 1]?.entry ?? null;
 
