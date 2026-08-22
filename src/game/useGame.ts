@@ -134,7 +134,7 @@ export function useGame() {
       if (!trimmed) return;
       let check = checkAnswer(trimmed, requiredStart, usedWords);
       if (!check.ok && check.reason === 'not-a-word') {
-        const closest = findClosestWord(trimmed, requiredStart);
+        const closest = findClosestWord(trimmed, requiredStart, usedWords);
         if (closest) {
           check = checkAnswer(closest.word, requiredStart, usedWords);
         }

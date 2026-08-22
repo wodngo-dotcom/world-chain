@@ -42,20 +42,20 @@ function randomFrom<T>(arr: T[]): T | null {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-/** AI 캐릭터가 이어갈 수 있는, 아직 쓰이지 않은 단어 후보를 자신의 난이도 풀 안에서 찾는다. */
+/** AI 캐릭터가 이어갈 수 있는, 아직 쓰이지 않은 단어 후보를 자신의 난이도 풀 안에서 찾는다 (한 글자 단어는 AI가 쓰지 않는다). */
 export function findAiCandidates(
   character: Character,
   requiredStart: string,
   usedWords: ReadonlySet<string>,
 ): WordEntry[] {
   const pool = WORDS_BY_START.get(requiredStart) ?? [];
-  return pool.filter((w) => w.tier <= character.tier && !usedWords.has(w.word));
+  return pool.filter((w) => w.tier <= character.tier && w.word.length >= 2 && !usedWords.has(w.word));
 }
 
 /** 티어 제한 없이, 아직 쓰이지 않은 후보를 사전 전체에서 찾는다 (최소 게임 길이를 보장하기 위한 보조 탐색용). */
 function findAnyCandidates(requiredStart: string, usedWords: ReadonlySet<string>): WordEntry[] {
   const pool = WORDS_BY_START.get(requiredStart) ?? [];
-  return pool.filter((w) => !usedWords.has(w.word));
+  return pool.filter((w) => w.word.length >= 2 && !usedWords.has(w.word));
 }
 
 export type AiTurnResult =
@@ -117,7 +117,7 @@ export function pickHintWord(
   avoidDeadEnd = false,
 ): WordEntry | null {
   const pool = WORDS_BY_START.get(requiredStart) ?? [];
-  const available = pool.filter((w) => !usedWords.has(w.word));
+  const available = pool.filter((w) => w.word.length >= 2 && !usedWords.has(w.word));
   return randomFrom(avoidDeadEnd ? preferContinuable(available) : available);
 }
 
@@ -159,9 +159,15 @@ export function levenshtein(a: string, b: string): number {
 /**
  * 음성인식 결과와 정확히 일치하는 단어가 없을 때, 발음이 비슷한 후보를 관대하게 찾는다.
  * 시작 글자가 같은 단어들 중 편집 거리가 짧은 순으로 가장 가까운 것을 반환한다.
+ * 이미 나온 단어는 후보에서 제외한다 — 그렇지 않으면 아이가 말한 적 없는 새 단어가
+ * 발음이 비슷한 "이미 쓰인" 단어로 잘못 매칭되어 '이미 나온 단어예요' 오류가 뜨게 된다.
  */
-export function findClosestWord(transcript: string, requiredStart: string): WordEntry | null {
-  const candidates = WORDS_BY_START.get(requiredStart) ?? [];
+export function findClosestWord(
+  transcript: string,
+  requiredStart: string,
+  usedWords: ReadonlySet<string>,
+): WordEntry | null {
+  const candidates = (WORDS_BY_START.get(requiredStart) ?? []).filter((w) => !usedWords.has(w.word));
   if (candidates.length === 0) return null;
   const threshold = transcript.length <= 2 ? 1 : 2;
   let best: WordEntry | null = null;

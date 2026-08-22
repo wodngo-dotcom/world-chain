@@ -9,6 +9,9 @@ export function useSpeechRecognition({ onResult }: UseSpeechRecognitionOptions =
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  // 마이크 권한을 한 번만 받아 계속 쥐고 있으면(스트림을 끊지 않으면), 이후 인식을 시작할 때마다
+  // 브라우저가 권한을 다시 물어보지 않는다. 버튼을 누를 때마다 새로 요청하는 대신 이 스트림을 재사용한다.
+  const micStreamRef = useRef<MediaStream | null>(null);
   const onResultRef = useRef(onResult);
   useEffect(() => {
     onResultRef.current = onResult;
@@ -49,16 +52,25 @@ export function useSpeechRecognition({ onResult }: UseSpeechRecognitionOptions =
       recognition.onend = null;
       recognition.onstart = null;
       recognition.abort();
+      micStreamRef.current?.getTracks().forEach((track) => track.stop());
+      micStreamRef.current = null;
     };
   }, [supported]);
 
-  const start = useCallback(() => {
+  const start = useCallback(async () => {
     if (!recognitionRef.current) return;
     setTranscript('');
     try {
+      if (!micStreamRef.current && navigator.mediaDevices?.getUserMedia) {
+        micStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
       recognitionRef.current.start();
-    } catch {
-      // 이미 시작된 경우 무시
+    } catch (err) {
+      if (!micStreamRef.current) {
+        setError(err instanceof Error && err.name === 'NotAllowedError' ? 'not-allowed' : 'audio-capture');
+        return;
+      }
+      // 인식이 이미 시작된 경우(InvalidStateError) 등은 무시
     }
   }, []);
 
