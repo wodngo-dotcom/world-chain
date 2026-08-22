@@ -95,10 +95,21 @@ export function findAiCandidates(
   return pool.filter((w) => w.tier <= character.tier && w.word.length >= 2 && !usedWords.has(w.word));
 }
 
-/** 티어 제한 없이, 아직 쓰이지 않은 후보를 사전 전체에서 찾는다 (최소 게임 길이를 보장하기 위한 보조 탐색용). */
+/** 티어 제한 없이, 아직 쓰이지 않은 후보를 아동 목록 전체에서 찾는다 (최소 게임 길이를 보장하기 위한 보조 탐색용). */
 function findAnyCandidates(requiredStart: string, usedWords: ReadonlySet<string>): WordEntry[] {
   const pool = collectByStarts(WORDS_BY_START, requiredStart);
   return pool.filter((w) => w.word.length >= 2 && !usedWords.has(w.word));
+}
+
+/**
+ * 아동 목록에 정말 아무 후보가 없을 때(예: 두음법칙으로 인해 그 글자로 시작하는
+ * 아동 수준 단어가 아예 없는 경우) 확장 사전에서 캐릭터가 이어갈 단어를 찾는다.
+ * 이건 난이도 조절이 아니라 데이터 공백 때문에 라운드가 부당하게 끝나는 것을
+ * 막기 위한 안전망이라, 최소 게임 길이 문턱과 무관하게 항상 시도한다.
+ */
+function findExtendedCandidates(requiredStart: string, usedWords: ReadonlySet<string>): WordEntry[] {
+  const pool = collectByStarts(DICTIONARY_BY_START, requiredStart);
+  return pool.filter((w) => w.length >= 2 && !usedWords.has(w)).map(syntheticEntry);
 }
 
 export type AiTurnResult =
@@ -121,8 +132,12 @@ export function takeAiTurn(
   const canRollBlock = chainLengthSoFar >= MIN_CHAIN_LENGTH_BEFORE_BLOCK;
   let candidates = findAiCandidates(character, requiredStart, usedWords);
   if (candidates.length === 0 && !canRollBlock) {
-    // 최소 게임 길이에 도달하기 전이라면, 캐릭터의 난이도 풀을 넘어서라도 사전 전체에서 이어갈 단어를 찾아본다
+    // 최소 게임 길이에 도달하기 전이라면, 캐릭터의 난이도 풀을 넘어서라도 아동 목록 전체에서 찾아본다
     candidates = findAnyCandidates(requiredStart, usedWords);
+  }
+  if (candidates.length === 0) {
+    // 아동 목록에 정말 아무것도 없다면(진짜 데이터 공백), 확장 사전에서라도 이어간다
+    candidates = findExtendedCandidates(requiredStart, usedWords);
   }
   if (candidates.length === 0) return { ok: false, reason: 'no-candidate' };
   if (canRollBlock && Math.random() < character.blockChance) return { ok: false, reason: 'rolled-block' };

@@ -1,6 +1,8 @@
 // 표준국어대사전 오픈 API 프록시 (Cloudflare Workers)
 //
-// 클라이언트(브라우저)는 이 워커의 /search?q=단어 엔드포인트만 호출한다.
+// 클라이언트(브라우저)는 이 워커의 두 엔드포인트만 호출한다.
+//   GET /search?q=단어        — 그 단어가 사전에 있는지 + 뜻풀이
+//   GET /prefix?q=글자&num=30 — 그 글자로 "시작하는" 단어 목록 (끝말잇기 AI가 이어갈 단어를 찾을 때 씀)
 // 국립국어원 API 인증키는 여기(서버 쪽 시크릿)에만 존재하며, 브라우저로
 // 전달되는 응답에는 절대 포함되지 않는다.
 //
@@ -26,18 +28,65 @@ function json(body, status = 200) {
   });
 }
 
+function itemsOf(channel) {
+  return Array.isArray(channel?.item) ? channel.item : channel?.item ? [channel.item] : [];
+}
+
+function definitionOf(item) {
+  const sense = Array.isArray(item?.sense) ? item.sense[0] : item?.sense;
+  return sense?.definition ?? null;
+}
+
 /** stdict 응답에서 우리 게임에 필요한 정보(존재 여부, 대표 뜻풀이)만 뽑아낸다. */
-function extractResult(data) {
+function extractSearchResult(data) {
   const channel = data?.channel;
   const total = Number(channel?.total ?? 0);
   if (!total || total < 1) {
     return { ok: true, exists: false, total: 0, definition: null };
   }
-  const items = Array.isArray(channel.item) ? channel.item : channel.item ? [channel.item] : [];
-  const first = items[0];
-  const sense = Array.isArray(first?.sense) ? first.sense[0] : first?.sense;
-  const definition = sense?.definition ?? null;
-  return { ok: true, exists: true, total, definition };
+  const items = itemsOf(channel);
+  return { ok: true, exists: true, total, definition: definitionOf(items[0]) };
+}
+
+/** stdict 응답에서 "글자로 시작하는 단어" 목록(중복 제거)을 뽑아낸다. */
+function extractPrefixResult(data) {
+  const channel = data?.channel;
+  const total = Number(channel?.total ?? 0);
+  if (!total || total < 1) {
+    return { ok: true, words: [] };
+  }
+  const seen = new Map();
+  for (const item of itemsOf(channel)) {
+    const word = item?.word?.trim();
+    if (!word || seen.has(word)) continue;
+    seen.set(word, definitionOf(item));
+  }
+  return { ok: true, words: Array.from(seen, ([word, definition]) => ({ word, definition })) };
+}
+
+async function callStdict(env, params) {
+  if (!env.STDICT_API_KEY) return { error: 'server-misconfigured' };
+  const apiUrl = new URL(STDICT_ENDPOINT);
+  apiUrl.searchParams.set('key', env.STDICT_API_KEY);
+  apiUrl.searchParams.set('req_type', 'json');
+  for (const [k, v] of Object.entries(params)) apiUrl.searchParams.set(k, v);
+
+  let upstream;
+  try {
+    upstream = await fetch(apiUrl.toString(), { cf: { cacheTtl: 3600, cacheEverything: true } });
+  } catch {
+    return { error: 'upstream-unreachable' };
+  }
+  if (!upstream.ok) return { error: 'upstream-error' };
+
+  let data;
+  try {
+    data = await upstream.json();
+  } catch {
+    return { error: 'upstream-bad-response' };
+  }
+  if (data?.error) return { error: `stdict-error-${data.error.error_code ?? 'unknown'}` };
+  return { data };
 }
 
 export default {
@@ -47,47 +96,24 @@ export default {
     }
 
     const url = new URL(request.url);
-    if (url.pathname !== '/search') {
-      return json({ ok: false, error: 'not-found' }, 404);
-    }
-
     const q = url.searchParams.get('q')?.trim();
     if (!q) {
       return json({ ok: false, error: 'missing-query' }, 400);
     }
 
-    if (!env.STDICT_API_KEY) {
-      return json({ ok: false, error: 'server-misconfigured' }, 500);
+    if (url.pathname === '/search') {
+      const { error, data } = await callStdict(env, { q });
+      if (error) return json({ ok: false, error }, 502);
+      return json(extractSearchResult(data));
     }
 
-    const apiUrl = new URL(STDICT_ENDPOINT);
-    apiUrl.searchParams.set('key', env.STDICT_API_KEY);
-    apiUrl.searchParams.set('q', q);
-    apiUrl.searchParams.set('req_type', 'json');
-
-    let upstream;
-    try {
-      upstream = await fetch(apiUrl.toString(), { cf: { cacheTtl: 3600, cacheEverything: true } });
-    } catch {
-      return json({ ok: false, error: 'upstream-unreachable' }, 502);
+    if (url.pathname === '/prefix') {
+      const num = Math.min(Number(url.searchParams.get('num')) || 30, 100);
+      const { error, data } = await callStdict(env, { q, method: 'start', num: String(num) });
+      if (error) return json({ ok: false, error }, 502);
+      return json(extractPrefixResult(data));
     }
 
-    if (!upstream.ok) {
-      return json({ ok: false, error: 'upstream-error' }, 502);
-    }
-
-    let data;
-    try {
-      data = await upstream.json();
-    } catch {
-      return json({ ok: false, error: 'upstream-bad-response' }, 502);
-    }
-
-    // 국립국어원 API는 오류 시에도 200을 주고 본문에 error 코드를 담는 경우가 있다.
-    if (data?.error) {
-      return json({ ok: false, error: `stdict-error-${data.error.error_code ?? 'unknown'}` }, 502);
-    }
-
-    return json(extractResult(data));
+    return json({ ok: false, error: 'not-found' }, 404);
   },
 };

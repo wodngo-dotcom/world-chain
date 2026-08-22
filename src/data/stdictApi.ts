@@ -33,3 +33,31 @@ export async function lookupStdict(word: string): Promise<StdictLookup | null> {
     return null;
   }
 }
+
+export interface StdictPrefixWord {
+  word: string;
+  definition: string | null;
+}
+
+/**
+ * 표준국어대사전에서 이 글자로 "시작하는" 단어 목록을 찾는다 (끝말잇기 AI가 아동 목록
+ * 과 로컬 확장 사전 어디에도 이어갈 단어가 없을 때 마지막으로 시도하는 수단).
+ * 프록시 미설정, 네트워크 실패 등 어떤 이유로든 찾을 수 없으면 null을 반환한다.
+ */
+export async function lookupStdictPrefix(prefix: string): Promise<StdictPrefixWord[] | null> {
+  if (!PROXY_URL) return null;
+  try {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(`${PROXY_URL}/prefix?q=${encodeURIComponent(prefix)}&num=30`, {
+      signal: controller.signal,
+    });
+    window.clearTimeout(timeout);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { ok?: boolean; words?: StdictPrefixWord[] };
+    if (!data.ok || !Array.isArray(data.words)) return null;
+    return data.words;
+  } catch {
+    return null;
+  }
+}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CHARACTERS, characterAt } from '../data/characters';
 import type { WordEntry } from '../data/words';
 import {
+  acceptableStarts,
   checkAnswer,
   findClosestWord,
   lastChar,
@@ -11,7 +12,8 @@ import {
   takeAiTurn,
 } from './engine';
 import type { AnswerCheck } from './engine';
-import { lookupStdict, stdictEnabled } from '../data/stdictApi';
+import { lookupStdict, lookupStdictPrefix, stdictEnabled } from '../data/stdictApi';
+import { isAppropriateWord } from '../data/profanityFilter';
 import type { AnswerFeedback, ChainItem, HintStage, Phase } from './types';
 import { useTTS } from '../hooks/useTTS';
 import { useProgress } from '../hooks/useProgress';
@@ -25,6 +27,33 @@ function randomOf<T>(arr: T[]): T {
 
 function say(template: string, word: string): string {
   return template.replace('{word}', word);
+}
+
+/**
+ * 아동 목록과 로컬 확장 사전 어디에도 캐릭터가 이어갈 단어가 없을 때(진짜 데이터 공백)
+ * 마지막으로 시도하는 수단: 표준국어대사전 API에서 그 글자로 시작하는 단어를 찾는다.
+ * 두음법칙 변형 글자도 함께 시도한다. 찾지 못하면 null.
+ */
+async function findApiCandidate(
+  requiredStart: string,
+  usedWords: ReadonlySet<string>,
+): Promise<WordEntry | null> {
+  for (const start of acceptableStarts(requiredStart)) {
+    const words = await lookupStdictPrefix(start);
+    if (!words) continue;
+    const candidates = words.filter(
+      (w) => w.word.length >= 2 && w.word[0] === start && !usedWords.has(w.word) && isAppropriateWord(w.word),
+    );
+    if (candidates.length === 0) continue;
+    const pick = randomOf(candidates);
+    return {
+      word: pick.word,
+      meaning: pick.definition ?? '표준국어대사전에 있는 단어예요!',
+      emoji: '📕',
+      tier: 5,
+    };
+  }
+  return null;
 }
 
 export function useGame() {
@@ -95,32 +124,54 @@ export function useGame() {
     });
   }, [character, speak]);
 
-  const resolveAiTurn = useCallback(
-    (nextRequiredStart: string, usedSoFar: Set<string>) => {
-      // usedWords.size === chain.length (모든 단어가 중복 없이 하나씩만 쓰이므로), 클로저 지연 없이 정확한 진행 길이를 얻는다
-      const result = takeAiTurn(character, nextRequiredStart, usedSoFar, usedSoFar.size);
-      if (!result.ok) {
-        setPhase('victory');
-        const line = randomOf(character.loseLines);
-        setSpeechLine(line);
-        speak(line, { ...character.voice });
-        recordVictory(character.id, chain.length + 1);
-        return;
-      }
+  const applyCharacterEntry = useCallback(
+    (entry: WordEntry, usedSoFar: Set<string>) => {
       const nextUsed = new Set(usedSoFar);
-      nextUsed.add(result.entry.word);
+      nextUsed.add(entry.word);
       setUsedWords(nextUsed);
-      setChain((prev) => [...prev, { speaker: 'character', entry: result.entry }]);
-      setRequiredStart(lastChar(result.entry.word));
+      setChain((prev) => [...prev, { speaker: 'character', entry }]);
+      setRequiredStart(lastChar(entry.word));
       setHintStage(0);
       setHintEntry(null);
       setRevealedEntry(null);
       setPhase('character-turn');
-      const line = say(randomOf(character.sayTemplates), result.entry.word);
+      const line = say(randomOf(character.sayTemplates), entry.word);
       setSpeechLine(line);
       speak(line, { ...character.voice, onEnd: () => setPhase('player-turn') });
     },
-    [character, chain.length, recordVictory, speak],
+    [character, speak],
+  );
+
+  const declareVictory = useCallback(() => {
+    setPhase('victory');
+    const line = randomOf(character.loseLines);
+    setSpeechLine(line);
+    speak(line, { ...character.voice });
+    recordVictory(character.id, chain.length + 1);
+  }, [character, chain.length, recordVictory, speak]);
+
+  const resolveAiTurn = useCallback(
+    async (nextRequiredStart: string, usedSoFar: Set<string>) => {
+      // usedWords.size === chain.length (모든 단어가 중복 없이 하나씩만 쓰이므로), 클로저 지연 없이 정확한 진행 길이를 얻는다
+      const result = takeAiTurn(character, nextRequiredStart, usedSoFar, usedSoFar.size);
+      if (result.ok) {
+        applyCharacterEntry(result.entry, usedSoFar);
+        return;
+      }
+      // 아동 목록 + 로컬 확장 사전 어디에도 이어갈 단어가 없는 진짜 데이터 공백일 때만
+      // (확률로 스스로 막힌 경우는 제외) 표준국어대사전 API로 마지막으로 한 번 더 찾아본다.
+      if (result.reason === 'no-candidate' && stdictEnabled) {
+        setDictionaryChecking(true);
+        const apiEntry = await findApiCandidate(nextRequiredStart, usedSoFar);
+        setDictionaryChecking(false);
+        if (apiEntry) {
+          applyCharacterEntry(apiEntry, usedSoFar);
+          return;
+        }
+      }
+      declareVictory();
+    },
+    [character, applyCharacterEntry, declareVictory],
   );
 
   const characterContinue = useCallback(
