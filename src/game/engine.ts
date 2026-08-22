@@ -1,6 +1,9 @@
 import { WORDS, type WordEntry } from '../data/words';
 import { DICTIONARY_WORDS } from '../data/dictionaryWords';
 import type { Character } from '../data/characters';
+import { acceptableStarts, initialConsonant } from './hangul';
+
+export { initialConsonant, acceptableStarts };
 
 // AI 캐릭터가 다음 단어를 고를 때 쓰는 풀. 아동 수준 단어만 포함하며 그대로 유지한다.
 const WORDS_BY_START = new Map<string, WordEntry[]>();
@@ -21,6 +24,16 @@ for (const w of DICTIONARY_WORDS) {
   const list = DICTIONARY_BY_START.get(key) ?? [];
   list.push(w);
   DICTIONARY_BY_START.set(key, list);
+}
+
+/** 요구 글자 자체와 그 두음법칙 변형 글자 모두에서 후보를 모아온다. */
+function collectByStarts<T>(map: Map<string, T[]>, requiredStart: string): T[] {
+  const result: T[] = [];
+  for (const start of acceptableStarts(requiredStart)) {
+    const list = map.get(start);
+    if (list) result.push(...list);
+  }
+  return result;
 }
 
 /** 아동 수준 목록에 없는 사전 단어를 위한 대체 표시(그림/뜻풀이가 따로 없음을 알려줌). */
@@ -62,7 +75,7 @@ export function checkAnswer(
   if (candidate.length < 2) return { ok: false, reason: 'not-a-word' };
   const entry = findAnswerEntry(candidate);
   if (!entry) return { ok: false, reason: 'not-a-word' };
-  if (candidate[0] !== requiredStart) return { ok: false, reason: 'wrong-start' };
+  if (!acceptableStarts(requiredStart).includes(candidate[0])) return { ok: false, reason: 'wrong-start' };
   if (usedWords.has(candidate)) return { ok: false, reason: 'already-used' };
   return { ok: true, entry };
 }
@@ -78,13 +91,13 @@ export function findAiCandidates(
   requiredStart: string,
   usedWords: ReadonlySet<string>,
 ): WordEntry[] {
-  const pool = WORDS_BY_START.get(requiredStart) ?? [];
+  const pool = collectByStarts(WORDS_BY_START, requiredStart);
   return pool.filter((w) => w.tier <= character.tier && w.word.length >= 2 && !usedWords.has(w.word));
 }
 
 /** 티어 제한 없이, 아직 쓰이지 않은 후보를 사전 전체에서 찾는다 (최소 게임 길이를 보장하기 위한 보조 탐색용). */
 function findAnyCandidates(requiredStart: string, usedWords: ReadonlySet<string>): WordEntry[] {
-  const pool = WORDS_BY_START.get(requiredStart) ?? [];
+  const pool = collectByStarts(WORDS_BY_START, requiredStart);
   return pool.filter((w) => w.word.length >= 2 && !usedWords.has(w.word));
 }
 
@@ -117,9 +130,13 @@ export function takeAiTurn(
   return { ok: true, entry };
 }
 
-/** 이 단어의 끝 글자로 시작하는 다른 단어가 사전 전체에 하나라도 있는지 (막다른 단어인지 아닌지). */
+/**
+ * 이 단어의 끝 글자로 시작하는(두음법칙 변형 포함) 다른 단어가 아동 목록이나 확장
+ * 사전에 하나라도 있는지 — 즉 아이가 실제로 이어갈 수 있는 막다른 단어가 아닌지.
+ */
 function hasContinuation(word: string): boolean {
-  return WORDS_BY_START.has(lastChar(word));
+  const next = lastChar(word);
+  return acceptableStarts(next).some((s) => WORDS_BY_START.has(s) || DICTIONARY_BY_START.has(s));
 }
 
 /** 이어갈 수 있는 단어를 우선하고, 그런 단어가 없을 때만 막다른 단어도 허용한다. */
@@ -138,7 +155,10 @@ export function pickOpeningWord(character: Character, usedWords: ReadonlySet<str
 }
 
 /**
- * 힌트/정답 공개용: 요구 글자로 시작하는, 아직 쓰이지 않은 단어를 티어 제한 없이 하나 찾는다.
+ * 힌트/정답 공개용: 요구 글자(두음법칙 변형 포함)로 시작하는, 아직 쓰이지 않은 단어를
+ * 티어 제한 없이 하나 찾는다. 아동 목록에 마땅한 단어가 없으면(예: '름'처럼 두음법칙
+ * 때문에 아동 목록 안에 그 글자로 시작하는 단어가 아예 없는 경우) 확장 사전에서도 찾아,
+ * 아이가 쓸 수 있는 풀이 부족해서 라운드가 그냥 끝나버리는 일을 줄인다.
  * avoidDeadEnd가 true면(최소 게임 길이 보장 구간) 그 자체가 막다른 단어인 후보는 가능한 한 피한다.
  */
 export function pickHintWord(
@@ -146,24 +166,13 @@ export function pickHintWord(
   usedWords: ReadonlySet<string>,
   avoidDeadEnd = false,
 ): WordEntry | null {
-  const pool = WORDS_BY_START.get(requiredStart) ?? [];
-  const available = pool.filter((w) => w.word.length >= 2 && !usedWords.has(w.word));
-  return randomFrom(avoidDeadEnd ? preferContinuable(available) : available);
-}
-
-export function initialConsonant(word: string): string {
-  const CHO = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
-  let result = '';
-  for (const ch of word) {
-    const code = ch.charCodeAt(0) - 0xac00;
-    if (code < 0 || code > 11171) {
-      result += ch;
-      continue;
-    }
-    const choIndex = Math.floor(code / (21 * 28));
-    result += CHO[choIndex];
+  const kidPool = collectByStarts(WORDS_BY_START, requiredStart);
+  let available = kidPool.filter((w) => w.word.length >= 2 && !usedWords.has(w.word));
+  if (available.length === 0) {
+    const dictPool = collectByStarts(DICTIONARY_BY_START, requiredStart);
+    available = dictPool.filter((w) => w.length >= 2 && !usedWords.has(w)).map(syntheticEntry);
   }
-  return result;
+  return randomFrom(avoidDeadEnd ? preferContinuable(available) : available);
 }
 
 /** 레벤슈타인 거리: 음성인식 결과의 발음 오차를 관대하게 허용하기 위해 사용 */
@@ -197,8 +206,8 @@ export function findClosestWord(
   requiredStart: string,
   usedWords: ReadonlySet<string>,
 ): WordEntry | null {
-  const kidCandidates = (WORDS_BY_START.get(requiredStart) ?? []).map((w) => w.word);
-  const dictCandidates = DICTIONARY_BY_START.get(requiredStart) ?? [];
+  const kidCandidates = collectByStarts(WORDS_BY_START, requiredStart).map((w) => w.word);
+  const dictCandidates = collectByStarts(DICTIONARY_BY_START, requiredStart);
   const candidates = Array.from(new Set([...kidCandidates, ...dictCandidates])).filter(
     (w) => !usedWords.has(w),
   );
