@@ -1,7 +1,7 @@
 import type { WordEntry } from '../data/words';
 import type { AnswerFeedback, HintStage } from '../game/types';
 import { initialConsonant } from '../game/engine';
-import { dueumVariant } from '../game/hangul';
+import { acceptableStarts } from '../game/hangul';
 
 interface PlayerPromptProps {
   requiredStart: string;
@@ -33,10 +33,10 @@ function micErrorMessage(code: string): string {
   return MIC_ERROR_TEXT[code] ?? '🎤 음성 인식에 문제가 생겼어요. 마이크 버튼을 다시 눌러볼까요?';
 }
 
-/** 두음법칙으로 인해 다르게도 시작할 수 있으면 "름(늠)"처럼 함께 보여준다. */
+/** 두음법칙/예외로 인해 다르게도 시작할 수 있으면 "름(늠/음)"처럼 함께 보여준다. */
 function startLabel(requiredStart: string): string {
-  const variant = dueumVariant(requiredStart);
-  return variant ? `${requiredStart}(${variant})` : requiredStart;
+  const [, ...variants] = acceptableStarts(requiredStart);
+  return variants.length > 0 ? `${requiredStart}(${variants.join('/')})` : requiredStart;
 }
 
 export function PlayerPrompt({

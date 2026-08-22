@@ -219,7 +219,7 @@ export function useGame() {
         // 확인하는 동안 라운드가 이미 넘어갔다면(몰라요 등) 이 결과는 더 이상 쓰지 않는다.
         if (phase !== 'player-turn') return;
         if (lookup?.exists) {
-          if (topAlternative[0] !== requiredStart) {
+          if (!acceptableStarts(requiredStart).includes(topAlternative[0])) {
             check = { ok: false, reason: 'wrong-start' };
           } else if (usedWords.has(topAlternative)) {
             check = { ok: false, reason: 'already-used' };

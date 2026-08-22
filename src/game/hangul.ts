@@ -59,8 +59,18 @@ export function dueumVariant(ch: string): string | null {
   return null;
 }
 
-/** 이 요구 글자로 "시작한다"고 인정할 수 있는 모든 글자(원래 글자 + 두음법칙 변형, 있다면). */
+// 두음법칙 일반 규칙만으로는 설명되지 않지만, 실제로 흔히 쓰이는 예외적 허용 글자.
+// 예: '름'으로 시작하는 표제어는 두음법칙상 '늠'만 인정되지만, ㄹ이 아예 탈락한
+// '음'(예: 음식, 음악)도 끝말잇기에서 널리 받아들여지므로 추가로 허용한다.
+const EXTRA_START_EXCEPTIONS: Record<string, string[]> = {
+  름: ['음'],
+};
+
+/** 이 요구 글자로 "시작한다"고 인정할 수 있는 모든 글자(원래 글자 + 두음법칙 변형 + 추가 예외). */
 export function acceptableStarts(requiredStart: string): string[] {
+  const starts = new Set([requiredStart]);
   const variant = dueumVariant(requiredStart);
-  return variant ? [requiredStart, variant] : [requiredStart];
+  if (variant) starts.add(variant);
+  for (const extra of EXTRA_START_EXCEPTIONS[requiredStart] ?? []) starts.add(extra);
+  return [...starts];
 }

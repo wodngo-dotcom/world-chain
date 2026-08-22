@@ -37,18 +37,26 @@ function definitionOf(item) {
   return sense?.definition ?? null;
 }
 
-/** stdict 응답에서 우리 게임에 필요한 정보(존재 여부, 대표 뜻풀이)만 뽑아낸다. */
+// 끝말잇기는 명사만 인정한다 (형용사/동사 등은 제외). item.pos에 품사가 담겨온다.
+function isNounItem(item) {
+  return item?.pos === '명사';
+}
+
+/** stdict 응답에서 우리 게임에 필요한 정보(명사로 존재하는지, 대표 뜻풀이)만 뽑아낸다. */
 function extractSearchResult(data) {
   const channel = data?.channel;
   const total = Number(channel?.total ?? 0);
   if (!total || total < 1) {
     return { ok: true, exists: false, total: 0, definition: null };
   }
-  const items = itemsOf(channel);
-  return { ok: true, exists: true, total, definition: definitionOf(items[0]) };
+  const nounItem = itemsOf(channel).find(isNounItem);
+  if (!nounItem) {
+    return { ok: true, exists: false, total: 0, definition: null };
+  }
+  return { ok: true, exists: true, total, definition: definitionOf(nounItem) };
 }
 
-/** stdict 응답에서 "글자로 시작하는 단어" 목록(중복 제거)을 뽑아낸다. */
+/** stdict 응답에서 "글자로 시작하는" 명사 목록(중복 제거)을 뽑아낸다. */
 function extractPrefixResult(data) {
   const channel = data?.channel;
   const total = Number(channel?.total ?? 0);
@@ -57,6 +65,7 @@ function extractPrefixResult(data) {
   }
   const seen = new Map();
   for (const item of itemsOf(channel)) {
+    if (!isNounItem(item)) continue;
     const word = item?.word?.trim();
     if (!word || seen.has(word)) continue;
     seen.set(word, definitionOf(item));
