@@ -107,7 +107,7 @@ export const CHARACTERS: Character[] = [
     cheerLines: ['크아앙, 좋다!', '제법이구나!'],
     blockChance: 0.01,
     color: 'from-red-400 to-amber-500',
-    voice: { rate: 0.75, pitch: 0.2, genderPref: 'male', voiceSlot: 1 },
+    voice: { rate: 0.78, pitch: 0.55, genderPref: 'male', voiceSlot: 1 },
   },
 ];
 
