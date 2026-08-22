@@ -29,16 +29,28 @@ export function useTTS() {
       utterance.rate = opts?.rate ?? 0.95;
       utterance.pitch = opts?.pitch ?? 1.05;
       if (voiceRef.current) utterance.voice = voiceRef.current;
+
+      let finished = false;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        setSpeaking(false);
+        opts?.onEnd?.();
+      };
       utterance.onstart = () => setSpeaking(true);
-      utterance.onend = () => {
-        setSpeaking(false);
-        opts?.onEnd?.();
-      };
-      utterance.onerror = () => {
-        setSpeaking(false);
-        opts?.onEnd?.();
-      };
-      window.speechSynthesis.speak(utterance);
+      utterance.onend = finish;
+      utterance.onerror = finish;
+      // 일부 기기/브라우저에서는 speechSynthesis가 onend/onerror를 전혀 호출하지 않고
+      // 조용히 멈춰버리는 경우가 있다. 그러면 게임이 캐릭터 턴에서 영영 멈춰서 마이크
+      // 버튼조차 눌리지 않게 되므로, 글자 수 기반으로 예상 시간이 지나면 강제로 넘어간다.
+      const estimatedMs = Math.min(8000, Math.max(1500, text.length * 180));
+      window.setTimeout(finish, estimatedMs);
+
+      try {
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        finish();
+      }
     },
     [supported],
   );
