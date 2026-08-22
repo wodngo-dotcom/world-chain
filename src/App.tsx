@@ -54,7 +54,11 @@ function App() {
       <GameHeader characterIndex={game.characterIndex} progress={game.progress} onRestart={game.restartGame} />
 
       {game.phase === 'intro' && (
-        <CharacterIntro character={game.character} onStart={game.startRound} speak={game.speak} />
+        <CharacterIntro
+          character={game.character}
+          onStart={game.startRound}
+          speakCharacterLine={game.speakCharacterLine}
+        />
       )}
 
       {game.phase === 'victory' && game.currentWord && (
@@ -82,10 +86,11 @@ function App() {
                 speaker={game.chain[game.chain.length - 1].speaker}
                 onReplay={() => {
                   const isCharacterWord = game.chain[game.chain.length - 1].speaker === 'character';
-                  game.speak(
-                    isCharacterWord ? game.speechLine : game.currentWord!.word,
-                    isCharacterWord ? { ...game.character.voice } : undefined,
-                  );
+                  if (isCharacterWord) {
+                    game.speakCharacterLine(game.speechLine);
+                  } else {
+                    game.speak(game.currentWord!.word);
+                  }
                 }}
                 onReadMeaning={() => game.speak(game.currentWord!.meaning)}
               />

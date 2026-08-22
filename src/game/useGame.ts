@@ -14,8 +14,10 @@ import {
 import type { AnswerCheck } from './engine';
 import { lookupStdict, lookupStdictPrefix, stdictEnabled } from '../data/stdictApi';
 import { isAppropriateWord } from '../data/profanityFilter';
+import { extractOnomatopoeia } from './onomatopoeia';
 import type { AnswerFeedback, ChainItem, HintStage, Phase } from './types';
 import { useTTS } from '../hooks/useTTS';
+import { useSoundEffects } from '../hooks/useSoundEffects';
 import { useProgress } from '../hooks/useProgress';
 
 const IDLE_HINT_MS = 10000;
@@ -59,6 +61,7 @@ async function findApiCandidate(
 export function useGame() {
   const { progress, recordVictory, recordChainLength, resetProgress } = useProgress();
   const { speak, cancel: cancelSpeech, supported: ttsSupported } = useTTS();
+  const playSfx = useSoundEffects();
 
   const [characterIndex, setCharacterIndex] = useState(progress.currentCharacterIndex);
   const [phase, setPhase] = useState<Phase>('intro');
@@ -76,6 +79,18 @@ export function useGame() {
 
   const character = characterAt(Math.min(characterIndex, CHARACTERS.length - 1));
   const isFinalClear = characterIndex >= CHARACTERS.length;
+
+  // 캐릭터 대사를 말할 때 쓰는 공통 헬퍼: 맨 앞의 의성어(크아앙, 야옹 등)는 TTS로 읽지
+  // 않고 대신 효과음으로 재생하며, 나머지 실제 단어 부분만 그 캐릭터 목소리로 읽는다.
+  // 화면 말풍선(speechLine)에는 의성어를 포함한 원래 문장을 그대로 보여준다.
+  const speakCharacterLine = useCallback(
+    (line: string, onEnd?: () => void) => {
+      const { speech, sfx } = extractOnomatopoeia(line);
+      if (sfx) playSfx(sfx);
+      speak(speech, { ...character.voice, onEnd });
+    },
+    [character, speak, playSfx],
+  );
 
   const clearIdleTimer = useCallback(() => {
     if (idleTimerRef.current) {
@@ -118,11 +133,8 @@ export function useGame() {
     setPhase('character-turn');
     const line = say(randomOf(character.sayTemplates), opening.word);
     setSpeechLine(line);
-    speak(line, {
-      ...character.voice,
-      onEnd: () => setPhase('player-turn'),
-    });
-  }, [character, speak]);
+    speakCharacterLine(line, () => setPhase('player-turn'));
+  }, [character, speakCharacterLine]);
 
   const applyCharacterEntry = useCallback(
     (entry: WordEntry, usedSoFar: Set<string>) => {
@@ -137,18 +149,18 @@ export function useGame() {
       setPhase('character-turn');
       const line = say(randomOf(character.sayTemplates), entry.word);
       setSpeechLine(line);
-      speak(line, { ...character.voice, onEnd: () => setPhase('player-turn') });
+      speakCharacterLine(line, () => setPhase('player-turn'));
     },
-    [character, speak],
+    [character, speakCharacterLine],
   );
 
   const declareVictory = useCallback(() => {
     setPhase('victory');
     const line = randomOf(character.loseLines);
     setSpeechLine(line);
-    speak(line, { ...character.voice });
+    speakCharacterLine(line);
     recordVictory(character.id, chain.length + 1);
-  }, [character, chain.length, recordVictory, speak]);
+  }, [character, chain.length, recordVictory, speakCharacterLine]);
 
   const resolveAiTurn = useCallback(
     async (nextRequiredStart: string, usedSoFar: Set<string>) => {
@@ -337,5 +349,6 @@ export function useGame() {
     proceedAfterVictory,
     restartGame,
     speak,
+    speakCharacterLine,
   };
 }
