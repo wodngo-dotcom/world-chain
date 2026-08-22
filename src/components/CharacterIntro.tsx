@@ -4,13 +4,13 @@ import type { Character } from '../data/characters';
 interface CharacterIntroProps {
   character: Character;
   onStart: () => void;
-  speak: (text: string, opts?: { onEnd?: () => void }) => void;
+  speak: (text: string, opts?: { rate?: number; pitch?: number; onEnd?: () => void }) => void;
 }
 
 export function CharacterIntro({ character, onStart, speak }: CharacterIntroProps) {
   useEffect(() => {
     const line = character.introLines[Math.floor(Math.random() * character.introLines.length)];
-    speak(line);
+    speak(line, { ...character.voice });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [character.id]);
 

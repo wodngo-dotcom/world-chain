@@ -82,7 +82,10 @@ function App() {
                 speaker={game.chain[game.chain.length - 1].speaker}
                 onReplay={() => {
                   const isCharacterWord = game.chain[game.chain.length - 1].speaker === 'character';
-                  game.speak(isCharacterWord ? game.speechLine : game.currentWord!.word);
+                  game.speak(
+                    isCharacterWord ? game.speechLine : game.currentWord!.word,
+                    isCharacterWord ? { ...game.character.voice } : undefined,
+                  );
                 }}
               />
             )}

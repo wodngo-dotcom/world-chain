@@ -1,3 +1,8 @@
+export interface VoiceProfile {
+  rate: number; // 말하는 속도 (1이 기본)
+  pitch: number; // 목소리 높낮이 (1이 기본, 낮을수록 굵고 낮은 목소리)
+}
+
 export interface Character {
   id: string;
   name: string;
@@ -10,6 +15,7 @@ export interface Character {
   cheerLines: string[]; // 캐릭터가 다음 단어로 이어갈 때 (가끔 표시)
   blockChance: number; // 단어가 있어도 스스로 막히는 확률 (난이도 조절용)
   color: string; // 테마 색상 (tailwind 기반 그라디언트 클래스)
+  voice: VoiceProfile; // 캐릭터마다 다른 목소리 톤
 }
 
 export const CHARACTERS: Character[] = [
@@ -28,6 +34,7 @@ export const CHARACTERS: Character[] = [
     cheerLines: ['잘한다, 잘한다!', '우아, 대단해!'],
     blockChance: 0.1,
     color: 'from-amber-300 to-orange-400',
+    voice: { rate: 1.15, pitch: 1.55 },
   },
   {
     id: 'cat',
@@ -44,6 +51,7 @@ export const CHARACTERS: Character[] = [
     cheerLines: ['냐옹, 좋아!', '제법인걸!'],
     blockChance: 0.07,
     color: 'from-sky-300 to-blue-400',
+    voice: { rate: 1.0, pitch: 1.2 },
   },
   {
     id: 'owl',
@@ -60,6 +68,7 @@ export const CHARACTERS: Character[] = [
     cheerLines: ['부엉부엉, 훌륭해!', '제법 똑똑한걸!'],
     blockChance: 0.05,
     color: 'from-violet-300 to-purple-400',
+    voice: { rate: 0.85, pitch: 0.8 },
   },
   {
     id: 'fox',
@@ -76,6 +85,7 @@ export const CHARACTERS: Character[] = [
     cheerLines: ['오호, 제법인데?', '히히, 재밌다!'],
     blockChance: 0.03,
     color: 'from-rose-300 to-orange-400',
+    voice: { rate: 1.2, pitch: 1.3 },
   },
   {
     id: 'tiger',
@@ -92,6 +102,7 @@ export const CHARACTERS: Character[] = [
     cheerLines: ['크아앙, 좋다!', '제법이구나!'],
     blockChance: 0.01,
     color: 'from-red-400 to-amber-500',
+    voice: { rate: 0.78, pitch: 0.45 },
   },
 ];
 

@@ -87,6 +87,7 @@ export function useGame() {
     const line = say(randomOf(character.sayTemplates), opening.word);
     setSpeechLine(line);
     speak(line, {
+      ...character.voice,
       onEnd: () => setPhase('player-turn'),
     });
   }, [character, speak]);
@@ -99,7 +100,7 @@ export function useGame() {
         setPhase('victory');
         const line = randomOf(character.loseLines);
         setSpeechLine(line);
-        speak(line);
+        speak(line, { ...character.voice });
         recordVictory(character.id, chain.length + 1);
         return;
       }
@@ -114,7 +115,7 @@ export function useGame() {
       setPhase('character-turn');
       const line = say(randomOf(character.sayTemplates), result.entry.word);
       setSpeechLine(line);
-      speak(line, { onEnd: () => setPhase('player-turn') });
+      speak(line, { ...character.voice, onEnd: () => setPhase('player-turn') });
     },
     [character, chain.length, recordVictory, speak],
   );
