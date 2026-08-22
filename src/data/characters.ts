@@ -1,6 +1,9 @@
 export interface VoiceProfile {
   rate: number; // 말하는 속도 (1이 기본)
   pitch: number; // 목소리 높낮이 (1이 기본, 낮을수록 굵고 낮은 목소리)
+  // 기기에 한국어 음성이 여러 개 있으면 캐릭터마다 다른 음성 자체를 쓰도록 하는 인덱스.
+  // (음성이 하나뿐인 기기에서는 의미 없고, rate/pitch 차이만 들린다.)
+  voiceIndex: number;
 }
 
 export interface Character {
@@ -34,7 +37,7 @@ export const CHARACTERS: Character[] = [
     cheerLines: ['잘한다, 잘한다!', '우아, 대단해!'],
     blockChance: 0.1,
     color: 'from-amber-300 to-orange-400',
-    voice: { rate: 1.15, pitch: 1.55 },
+    voice: { rate: 1.25, pitch: 1.85, voiceIndex: 0 },
   },
   {
     id: 'cat',
@@ -51,7 +54,7 @@ export const CHARACTERS: Character[] = [
     cheerLines: ['냐옹, 좋아!', '제법인걸!'],
     blockChance: 0.07,
     color: 'from-sky-300 to-blue-400',
-    voice: { rate: 1.0, pitch: 1.2 },
+    voice: { rate: 1.0, pitch: 1.15, voiceIndex: 1 },
   },
   {
     id: 'owl',
@@ -68,7 +71,7 @@ export const CHARACTERS: Character[] = [
     cheerLines: ['부엉부엉, 훌륭해!', '제법 똑똑한걸!'],
     blockChance: 0.05,
     color: 'from-violet-300 to-purple-400',
-    voice: { rate: 0.85, pitch: 0.8 },
+    voice: { rate: 0.82, pitch: 0.7, voiceIndex: 2 },
   },
   {
     id: 'fox',
@@ -85,7 +88,7 @@ export const CHARACTERS: Character[] = [
     cheerLines: ['오호, 제법인데?', '히히, 재밌다!'],
     blockChance: 0.03,
     color: 'from-rose-300 to-orange-400',
-    voice: { rate: 1.2, pitch: 1.3 },
+    voice: { rate: 1.3, pitch: 1.35, voiceIndex: 3 },
   },
   {
     id: 'tiger',
@@ -102,7 +105,7 @@ export const CHARACTERS: Character[] = [
     cheerLines: ['크아앙, 좋다!', '제법이구나!'],
     blockChance: 0.01,
     color: 'from-red-400 to-amber-500',
-    voice: { rate: 0.78, pitch: 0.45 },
+    voice: { rate: 0.72, pitch: 0.25, voiceIndex: 4 },
   },
 ];
 
