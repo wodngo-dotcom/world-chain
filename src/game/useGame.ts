@@ -10,6 +10,8 @@ import {
   pickOpeningWord,
   takeAiTurn,
 } from './engine';
+import type { AnswerCheck } from './engine';
+import { lookupStdict, stdictEnabled } from '../data/stdictApi';
 import type { AnswerFeedback, ChainItem, HintStage, Phase } from './types';
 import { useTTS } from '../hooks/useTTS';
 import { useProgress } from '../hooks/useProgress';
@@ -39,6 +41,7 @@ export function useGame() {
   const [feedback, setFeedback] = useState<AnswerFeedback>(null);
   const [speechLine, setSpeechLine] = useState<string>('');
   const [revealedEntry, setRevealedEntry] = useState<WordEntry | null>(null);
+  const [dictionaryChecking, setDictionaryChecking] = useState(false);
 
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -129,7 +132,7 @@ export function useGame() {
   );
 
   const submitAnswer = useCallback(
-    (rawAlternatives: string[] | string) => {
+    async (rawAlternatives: string[] | string) => {
       if (phase !== 'player-turn' || !requiredStart) return;
       const alternatives = (Array.isArray(rawAlternatives) ? rawAlternatives : [rawAlternatives])
         .map((a) => a.trim())
@@ -139,7 +142,7 @@ export function useGame() {
 
       // 음성인식이 준 여러 후보(대개 1순위가 가장 정확하지만, 드물게 2·3순위가 맞을 때가 있다)
       // 중 사전에 있는 유효한 답을 찾을 때까지 순서대로 확인한다.
-      let check = checkAnswer(topAlternative, requiredStart, usedWords);
+      let check: AnswerCheck = checkAnswer(topAlternative, requiredStart, usedWords);
       if (!check.ok) {
         for (const alt of alternatives.slice(1)) {
           const altCheck = checkAnswer(alt, requiredStart, usedWords);
@@ -155,6 +158,34 @@ export function useGame() {
           check = checkAnswer(closest.word, requiredStart, usedWords);
         }
       }
+
+      // 로컬 목록(아동 목록 + 확장 사전)에서도 못 찾았을 때만, 표준국어대사전 API로
+      // 한 번 더 확인한다 (프록시가 설정되어 있을 때만 동작하며, 실패해도 조용히 건너뜀).
+      if (!check.ok && check.reason === 'not-a-word' && stdictEnabled) {
+        setDictionaryChecking(true);
+        const lookup = await lookupStdict(topAlternative);
+        setDictionaryChecking(false);
+        // 확인하는 동안 라운드가 이미 넘어갔다면(몰라요 등) 이 결과는 더 이상 쓰지 않는다.
+        if (phase !== 'player-turn') return;
+        if (lookup?.exists) {
+          if (topAlternative[0] !== requiredStart) {
+            check = { ok: false, reason: 'wrong-start' };
+          } else if (usedWords.has(topAlternative)) {
+            check = { ok: false, reason: 'already-used' };
+          } else {
+            check = {
+              ok: true,
+              entry: {
+                word: topAlternative,
+                meaning: lookup.definition ?? '표준국어대사전에 있는 단어예요!',
+                emoji: '📕',
+                tier: 5,
+              },
+            };
+          }
+        }
+      }
+
       if (!check.ok || !check.entry) {
         setFeedback(check.reason ?? 'not-a-word');
         return;
@@ -237,6 +268,7 @@ export function useGame() {
     feedback,
     speechLine,
     revealedEntry,
+    dictionaryChecking,
     progress,
     ttsSupported,
     startRound,

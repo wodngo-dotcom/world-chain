@@ -9,6 +9,7 @@ interface PlayerPromptProps {
   feedback: AnswerFeedback;
   heard: string;
   micError: string | null;
+  dictionaryChecking: boolean;
 }
 
 const FEEDBACK_TEXT: Record<Exclude<AnswerFeedback, null>, string> = {
@@ -38,6 +39,7 @@ export function PlayerPrompt({
   feedback,
   heard,
   micError,
+  dictionaryChecking,
 }: PlayerPromptProps) {
   return (
     <div className="flex w-full max-w-sm flex-col items-center gap-3">
@@ -49,6 +51,17 @@ export function PlayerPrompt({
       {heard && (
         <div className="rounded-2xl bg-white/90 px-4 py-2 text-sm font-semibold text-slate-500 shadow">
           👂 내가 들은 말: <span className="text-slate-700">{heard}</span>
+        </div>
+      )}
+
+      {dictionaryChecking && (
+        <div className="animate-bounce-in flex items-center gap-2 rounded-2xl bg-sky-100 px-4 py-2.5 text-center text-sm font-bold text-sky-600 sm:text-base">
+          <span className="inline-flex gap-1">
+            <span className="animate-bounce [animation-delay:0ms]">·</span>
+            <span className="animate-bounce [animation-delay:150ms]">·</span>
+            <span className="animate-bounce [animation-delay:300ms]">·</span>
+          </span>
+          📖 사전에서 찾아보는 중이에요
         </div>
       )}
 

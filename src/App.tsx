@@ -98,6 +98,7 @@ function App() {
                 feedback={game.feedback}
                 heard={heard}
                 micError={micError}
+                dictionaryChecking={game.dictionaryChecking}
               />
             )}
           </div>
