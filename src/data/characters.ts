@@ -26,7 +26,7 @@ export const CHARACTERS: Character[] = [
     sayTemplates: ['우물쭈물... {word}!', '음... {word} 어때?', '다람쥐가 힘겹게 말해요. {word}!', '어, 어... {word}!'],
     loseLines: ['으악, 모르겠다! 네가 이겼어!', '아이쿠, 다람쥐가 항복이에요!', '도토리도 다 떨어뜨렸어요! 네가 최고야!'],
     cheerLines: ['잘한다, 잘한다!', '우아, 대단해!'],
-    blockChance: 0.75,
+    blockChance: 0.1,
     color: 'from-amber-300 to-orange-400',
   },
   {
@@ -42,7 +42,7 @@ export const CHARACTERS: Character[] = [
     sayTemplates: ['야옹~ {word}!', '냐옹, 정답은 {word}야!', '고양이가 또박또박 말해요. {word}!'],
     loseLines: ['야옹... 더는 생각이 안 나! 네가 이겼어!', '앗, 고양이가 두 손 두 발 다 들었어요!'],
     cheerLines: ['냐옹, 좋아!', '제법인걸!'],
-    blockChance: 0.55,
+    blockChance: 0.07,
     color: 'from-sky-300 to-blue-400',
   },
   {
@@ -58,7 +58,7 @@ export const CHARACTERS: Character[] = [
     sayTemplates: ['흠, 정확히는 이렇지. {word}.', '부엉부엉, {word}가 어떨까?', '지혜롭게 말하지. {word}!'],
     loseLines: ['부엉... 이런, 모르는 단어네! 네가 이겼어!', '어허, 부엉이도 가끔은 막히는구나!'],
     cheerLines: ['부엉부엉, 훌륭해!', '제법 똑똑한걸!'],
-    blockChance: 0.35,
+    blockChance: 0.05,
     color: 'from-violet-300 to-purple-400',
   },
   {
@@ -74,7 +74,7 @@ export const CHARACTERS: Character[] = [
     sayTemplates: ['짜잔! {word}, 놀랐지?', '히히, {word}! 허를 찔렸지?', '요것도 몰랐지? {word}!'],
     loseLines: ['헉, 이번엔 내가 당했네! 네가 이겼어!', '히히... 아니 이게 아닌데! 졌다 졌어!'],
     cheerLines: ['오호, 제법인데?', '히히, 재밌다!'],
-    blockChance: 0.22,
+    blockChance: 0.03,
     color: 'from-rose-300 to-orange-400',
   },
   {
@@ -90,7 +90,7 @@ export const CHARACTERS: Character[] = [
     sayTemplates: ['크아앙! {word}!', '왕이 명한다, {word}!', '으흠, 이 정도는 알아야지. {word}!'],
     loseLines: ['크아앙... 믿을 수 없다! 네가 왕을 이겼어!', '으으, 왕대장이 무릎을 꿇는다! 최고야!'],
     cheerLines: ['크아앙, 좋다!', '제법이구나!'],
-    blockChance: 0.12,
+    blockChance: 0.01,
     color: 'from-red-400 to-amber-500',
   },
 ];

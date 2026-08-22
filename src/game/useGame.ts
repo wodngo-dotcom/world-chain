@@ -5,6 +5,7 @@ import {
   checkAnswer,
   findClosestWord,
   lastChar,
+  MIN_CHAIN_LENGTH_BEFORE_BLOCK,
   pickHintWord,
   pickOpeningWord,
   takeAiTurn,
@@ -66,7 +67,7 @@ export function useGame() {
   const ensureHintEntry = useCallback((): WordEntry | null => {
     if (hintEntry) return hintEntry;
     if (!requiredStart) return null;
-    const entry = pickHintWord(requiredStart, usedWords);
+    const entry = pickHintWord(requiredStart, usedWords, usedWords.size < MIN_CHAIN_LENGTH_BEFORE_BLOCK);
     setHintEntry(entry);
     return entry;
   }, [hintEntry, requiredStart, usedWords]);
@@ -92,7 +93,8 @@ export function useGame() {
 
   const resolveAiTurn = useCallback(
     (nextRequiredStart: string, usedSoFar: Set<string>) => {
-      const result = takeAiTurn(character, nextRequiredStart, usedSoFar);
+      // usedWords.size === chain.length (모든 단어가 중복 없이 하나씩만 쓰이므로), 클로저 지연 없이 정확한 진행 길이를 얻는다
+      const result = takeAiTurn(character, nextRequiredStart, usedSoFar, usedSoFar.size);
       if (!result.ok) {
         setPhase('victory');
         const line = randomOf(character.loseLines);

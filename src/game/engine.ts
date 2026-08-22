@@ -52,37 +52,73 @@ export function findAiCandidates(
   return pool.filter((w) => w.tier <= character.tier && !usedWords.has(w.word));
 }
 
+/** 티어 제한 없이, 아직 쓰이지 않은 후보를 사전 전체에서 찾는다 (최소 게임 길이를 보장하기 위한 보조 탐색용). */
+function findAnyCandidates(requiredStart: string, usedWords: ReadonlySet<string>): WordEntry[] {
+  const pool = WORDS_BY_START.get(requiredStart) ?? [];
+  return pool.filter((w) => !usedWords.has(w.word));
+}
+
 export type AiTurnResult =
   | { ok: true; entry: WordEntry }
   | { ok: false; reason: 'no-candidate' | 'rolled-block' };
 
-/** AI 캐릭터의 턴: 후보가 없으면 강제로 막히고, 있어도 캐릭터의 막힘 확률에 따라 막힐 수 있다. */
+/** 이 라운드 안에서 최소 이만큼 단어가 오갈 때까지는 캐릭터가 확률로 막히지 않는다 (최소 게임 길이 보장). */
+export const MIN_CHAIN_LENGTH_BEFORE_BLOCK = 10;
+
+/**
+ * AI 캐릭터의 턴: 이어갈 단어 후보가 아예 없으면 강제로 막히고,
+ * 후보가 있어도 (최소 라운드 수를 넘긴 뒤부터) 캐릭터의 막힘 확률에 따라 막힐 수 있다.
+ */
 export function takeAiTurn(
   character: Character,
   requiredStart: string,
   usedWords: ReadonlySet<string>,
+  chainLengthSoFar: number,
 ): AiTurnResult {
-  const candidates = findAiCandidates(character, requiredStart, usedWords);
+  const canRollBlock = chainLengthSoFar >= MIN_CHAIN_LENGTH_BEFORE_BLOCK;
+  let candidates = findAiCandidates(character, requiredStart, usedWords);
+  if (candidates.length === 0 && !canRollBlock) {
+    // 최소 게임 길이에 도달하기 전이라면, 캐릭터의 난이도 풀을 넘어서라도 사전 전체에서 이어갈 단어를 찾아본다
+    candidates = findAnyCandidates(requiredStart, usedWords);
+  }
   if (candidates.length === 0) return { ok: false, reason: 'no-candidate' };
-  if (Math.random() < character.blockChance) return { ok: false, reason: 'rolled-block' };
+  if (canRollBlock && Math.random() < character.blockChance) return { ok: false, reason: 'rolled-block' };
   const entry = randomFrom(candidates)!;
   return { ok: true, entry };
 }
 
-/** 캐릭터가 라운드를 여는 첫 단어를 자신의 난이도 풀에서 무작위로 고른다. */
+/** 이 단어의 끝 글자로 시작하는 다른 단어가 사전 전체에 하나라도 있는지 (막다른 단어인지 아닌지). */
+function hasContinuation(word: string): boolean {
+  return WORDS_BY_START.has(lastChar(word));
+}
+
+/** 이어갈 수 있는 단어를 우선하고, 그런 단어가 없을 때만 막다른 단어도 허용한다. */
+function preferContinuable(pool: WordEntry[]): WordEntry[] {
+  const continuable = pool.filter((w) => hasContinuation(w.word));
+  return continuable.length > 0 ? continuable : pool;
+}
+
+/** 캐릭터가 라운드를 여는 첫 단어를 자신의 난이도 풀에서 무작위로 고른다 (막다른 단어는 가능한 한 피한다). */
 export function pickOpeningWord(character: Character, usedWords: ReadonlySet<string>): WordEntry {
   const pool = WORDS.filter((w) => w.tier <= character.tier && w.word.length >= 2 && !usedWords.has(w.word));
-  const entry = randomFrom(pool);
+  const entry = randomFrom(preferContinuable(pool));
   if (entry) return entry;
   // 안전망: 모든 단어를 다 썼다면 티어 무시하고 아무 단어나 (사실상 발생하지 않음)
   return randomFrom(WORDS.filter((w) => !usedWords.has(w.word))) ?? WORDS[0];
 }
 
-/** 힌트/정답 공개용: 요구 글자로 시작하는, 아직 쓰이지 않은 단어를 티어 제한 없이 하나 찾는다. */
-export function pickHintWord(requiredStart: string, usedWords: ReadonlySet<string>): WordEntry | null {
+/**
+ * 힌트/정답 공개용: 요구 글자로 시작하는, 아직 쓰이지 않은 단어를 티어 제한 없이 하나 찾는다.
+ * avoidDeadEnd가 true면(최소 게임 길이 보장 구간) 그 자체가 막다른 단어인 후보는 가능한 한 피한다.
+ */
+export function pickHintWord(
+  requiredStart: string,
+  usedWords: ReadonlySet<string>,
+  avoidDeadEnd = false,
+): WordEntry | null {
   const pool = WORDS_BY_START.get(requiredStart) ?? [];
   const available = pool.filter((w) => !usedWords.has(w.word));
-  return randomFrom(available);
+  return randomFrom(avoidDeadEnd ? preferContinuable(available) : available);
 }
 
 export function initialConsonant(word: string): string {
