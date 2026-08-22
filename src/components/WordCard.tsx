@@ -6,6 +6,7 @@ interface WordCardProps {
   entry: WordEntry;
   speaker: Speaker;
   onReplay: () => void;
+  onReadMeaning: () => void;
 }
 
 const SPEAKER_LABEL: Record<Speaker, string> = {
@@ -14,8 +15,16 @@ const SPEAKER_LABEL: Record<Speaker, string> = {
   reveal: '짠! 정답 단어',
 };
 
-export function WordCard({ entry, speaker, onReplay }: WordCardProps) {
+export function WordCard({ entry, speaker, onReplay, onReadMeaning }: WordCardProps) {
   const [showMeaning, setShowMeaning] = useState(false);
+
+  const handleToggleMeaning = () => {
+    setShowMeaning((v) => {
+      const next = !v;
+      if (next) onReadMeaning(); // 뜻풀이를 펼칠 때만 읽어준다 (접을 때는 안 읽음)
+      return next;
+    });
+  };
 
   return (
     <div className="animate-bounce-in relative flex w-full max-w-sm flex-col items-center rounded-[2.5rem] bg-white px-6 py-8 text-center shadow-xl">
@@ -37,7 +46,7 @@ export function WordCard({ entry, speaker, onReplay }: WordCardProps) {
         </button>
         <button
           type="button"
-          onClick={() => setShowMeaning((v) => !v)}
+          onClick={handleToggleMeaning}
           className="flex items-center gap-1 rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-600 transition active:scale-95"
         >
           📖 뜻풀이

@@ -87,6 +87,7 @@ function App() {
                     isCharacterWord ? { ...game.character.voice } : undefined,
                   );
                 }}
+                onReadMeaning={() => game.speak(game.currentWord!.meaning)}
               />
             )}
 
