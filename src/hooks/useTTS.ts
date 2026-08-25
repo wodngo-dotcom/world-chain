@@ -62,6 +62,7 @@ export function useTTS() {
       utterance.lang = 'ko-KR';
       utterance.rate = opts?.rate ?? 0.95;
       utterance.pitch = opts?.pitch ?? 1.05;
+      utterance.volume = 1; // 일부 기기/음성에서 기본 볼륨이 낮게 잡히는 경우가 있어 항상 최대로 고정
       const voice = pickVoice(opts?.genderPref, opts?.voiceSlot ?? 0);
       if (voice) utterance.voice = voice;
 

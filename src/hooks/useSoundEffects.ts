@@ -45,25 +45,41 @@ export function useSoundEffects() {
       const ctx = ctxRef.current;
       if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
 
+      let totalDuration = 0.3;
       switch (kind) {
         case 'roar': // 호랑이 크아앙: 낮은 으르렁에서 포효로
           playTone(ctx, { type: 'sawtooth', startFreq: 110, endFreq: 55, startTime: 0, duration: 0.35, peakGain: 0.22 });
           playTone(ctx, { type: 'sawtooth', startFreq: 220, endFreq: 90, startTime: 0.05, duration: 0.3, peakGain: 0.14 });
+          totalDuration = 0.35;
           break;
         case 'meow': // 고양이 야옹: 올라갔다 내려가는 소리
           playTone(ctx, { type: 'sine', startFreq: 500, endFreq: 800, startTime: 0, duration: 0.12, peakGain: 0.16 });
           playTone(ctx, { type: 'sine', startFreq: 800, endFreq: 400, startTime: 0.12, duration: 0.18, peakGain: 0.16 });
+          totalDuration = 0.3;
           break;
         case 'hoot': // 부엉이 부엉부엉: 짧은 저음 두 번
           playTone(ctx, { type: 'sine', startFreq: 300, endFreq: 220, startTime: 0, duration: 0.22, peakGain: 0.2 });
           playTone(ctx, { type: 'sine', startFreq: 300, endFreq: 220, startTime: 0.32, duration: 0.22, peakGain: 0.2 });
+          totalDuration = 0.54;
           break;
         case 'drumroll': // 두구두구: 빠른 저음 타격 여러 번
           for (let i = 0; i < 6; i++) {
             playTone(ctx, { type: 'triangle', startFreq: 140, startTime: i * 0.09, duration: 0.07, peakGain: 0.15 });
           }
+          totalDuration = 0.52;
           break;
       }
+
+      // 일부 모바일 브라우저는 Web Audio용 AudioContext가 "running" 상태로 켜져 있으면
+      // 동시에/뒤이어 재생되는 speechSynthesis(캐릭터 목소리)의 음량을 낮춰버리는(오디오
+      // 덕킹) 경우가 있다. 효과음이 끝나면 바로 suspend해서 그 영향을 최소화한다.
+      window.setTimeout(() => {
+        try {
+          void ctx.suspend().catch(() => {});
+        } catch {
+          // 무시
+        }
+      }, (totalDuration + 0.1) * 1000);
     } catch {
       // 무시: 효과음이 안 나더라도 게임 진행에는 지장이 없어야 한다
     }
