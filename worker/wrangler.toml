@@ -1,0 +1,7 @@
+name = "word-chain-stdict-proxy"
+main = "index.js"
+compatibility_date = "2024-11-01"
+
+# 인증키(STDICT_API_KEY)는 여기 적지 않는다.
+# 배포 후 아래 명령으로 시크릿으로 등록한다 (README.md 참고):
+#   wrangler secret put STDICT_API_KEY
